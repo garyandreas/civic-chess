@@ -6,11 +6,15 @@
 import "dotenv/config";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaPg } from "@prisma/adapter-pg";
 
 const prisma = new PrismaClient({
-  adapter: new PrismaBetterSqlite3({
-    url: process.env.DATABASE_URL ?? "file:./dev.db",
+  adapter: new PrismaPg({
+    connectionString:
+      process.env.DATABASE_URL ??
+      process.env.POSTGRES_PRISMA_URL ??
+      process.env.POSTGRES_URL ??
+      "",
   }),
 });
 
@@ -1056,8 +1060,8 @@ async function main() {
   const passwordHash = await bcrypt.hash("password123", 10);
   const demo = [
     {
-      name: "Siti Aminah",
-      username: "siti",
+      name: "Siti Hadriyani",
+      username: "siti_hadriyani",
       email: "siti@civicchess.id",
       points: 0,
     },

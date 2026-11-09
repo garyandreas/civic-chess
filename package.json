@@ -14,7 +14,7 @@
     "setup": "prisma db push && prisma db seed"
   },
   "dependencies": {
-    "@prisma/adapter-better-sqlite3": "7.10.1",
+    "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "7.10.1",
     "bcryptjs": "^3.0.3",
     "chess.js": "^1.4.0",
@@ -24,6 +24,7 @@
     "lucide-react": "^1.66.0",
     "next": "16.4.4",
     "next-auth": "5.0.0-beta.32",
+    "pg": "^8.16.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "tailwind-merge": "^3.3.1",
@@ -31,8 +32,8 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20",
+    "@types/pg": "^8.15.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
