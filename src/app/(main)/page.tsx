@@ -48,7 +48,7 @@ export default async function HomePage() {
   const rankIndex = allStudents.findIndex((s) => s.id === user.id);
   const rank = rankIndex >= 0 ? rankIndex + 1 : allStudents.length + 1;
 
-  // Cari modul yang sedang dipelajari oleh akun ini
+  // Cari materi yang sedang dipelajari oleh akun ini
   const activeModule =
     modules.find((m) => {
       const p = progressList.find((pr) => pr.moduleId === m.id);
@@ -82,7 +82,7 @@ export default async function HomePage() {
             Siap belajar hari ini?
           </h1>
           <p className="mt-4 text-sm sm:text-lg text-[#D6EAFF] font-medium">
-            Kamu sudah menyelesaikan {completedCount} dari {totalModules} modul.
+            Kamu sudah menyelesaikan {completedCount} dari {totalModules} materi.
             Teruskan semangatnya!
           </p>
 
@@ -117,7 +117,7 @@ export default async function HomePage() {
               {completedCount}/{totalModules}
             </div>
             <div className="text-sm sm:text-base font-semibold text-[#0B2545] mt-0.5">
-              Modul Selesai
+              Materi Selesai
             </div>
           </div>
 
@@ -150,7 +150,7 @@ export default async function HomePage() {
           </p>
 
           <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-10">
-            {/* Kartu Modul */}
+            {/* Kartu Materi */}
             <Link
               href={activeModule ? `/materi/${activeModule.order}` : "/materi/1"}
               className="border border-[#3A75B5] rounded-xl p-5 bg-white hover:shadow-md transition flex flex-col justify-between"
@@ -160,7 +160,7 @@ export default async function HomePage() {
                   <BookOpen className="w-4 h-4" />
                 </div>
                 <div className="text-base sm:text-lg font-bold text-[#0B2545]">
-                  Modul {activeModule?.order ?? 1}
+                  Materi {activeModule?.order ?? 1}
                 </div>
                 <div className="text-xs sm:text-sm text-gray-700 mt-1 leading-snug">
                   {activeModule?.title ?? "Bhinneka Tunggal Ika"}

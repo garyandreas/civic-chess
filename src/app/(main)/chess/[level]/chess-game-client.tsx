@@ -419,10 +419,10 @@ export function ChessGameClient({
           </div>
         </div>
 
-        {/* Kanan: Modul & Kartu Pertanyaan Giliran Ini */}
+        {/* Kanan: Materi & Kartu Pertanyaan Giliran Ini */}
         <div className="lg:col-span-6 flex flex-col">
           <div className="text-right text-xl sm:text-2xl font-bold text-black mb-4">
-            Modul {moduleOrder}: {points} Poin
+            Materi {moduleOrder}: {points} Poin
           </div>
 
           <div className="bg-white border border-[#3A75B5] rounded-xl p-6 sm:p-8 shadow-xs">

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { isQuizUnlocked } from "@/lib/progress";
 
 export async function POST(req: Request) {
   try {
@@ -17,6 +18,18 @@ export async function POST(req: Request) {
 
     const score = Math.round((correct / total) * 100);
     const pointsEarned = correct * 5;
+
+    if (moduleId) {
+      const progress = await prisma.moduleProgress.findUnique({
+        where: { userId_moduleId: { userId: user.id, moduleId } },
+      });
+      if (!isQuizUnlocked(progress)) {
+        return NextResponse.json(
+          { error: "Quis masih terkunci. Selesaikan seluruh halaman materi dulu." },
+          { status: 403 }
+        );
+      }
+    }
 
     const attempt = await prisma.quizAttempt.create({
       data: {

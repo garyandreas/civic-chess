@@ -1,6 +1,6 @@
 /**
  * Seed Materi Civic Chess — BAB III: Bhinneka Tunggal Ika sebagai Pemersatu Bangsa
- * Berisi Modul 1–4 lengkap beserta subbab, Ringkasan Materi, Kuis Pilihan Ganda,
+ * Berisi Materi 1–4 lengkap beserta subbab, Ringkasan Materi, Kuis Pilihan Ganda,
  * Soal Esai, serta 15 Soal Khusus Kuis Civic Chess (pilihan A–E).
  */
 import "dotenv/config";
@@ -281,7 +281,7 @@ Ketentuan mengenai lambang negara diatur dalam Peraturan Pemerintah Republik Ind
 Makna Bhinneka Tunggal Ika dalam Lambang Negara:
 Penempatan Bhinneka Tunggal Ika pada lambang negara bukan sekadar unsur pelengkap. Semboyan tersebut mengandung pesan penting bahwa persatuan bangsa harus tetap dijaga di tengah keberagaman. Keberadaan semboyan ini mengingatkan setiap warga negara untuk menghargai perbedaan, menjunjung tinggi toleransi, serta berpartisipasi dalam menjaga keutuhan Negara Kesatuan Republik Indonesia. Dengan demikian, Bhinneka Tunggal Ika menjadi bagian penting dari identitas nasional sekaligus pedoman dalam membangun kehidupan masyarakat yang bersatu, harmonis, dan saling menghormati.
 
-Soal Esai Refleksi Modul 1:
+Soal Esai Refleksi Materi 1:
 1. Bhinneka Tunggal Ika merupakan semboyan bangsa Indonesia yang menegaskan persatuan dalam keberagaman. Menurut pendapatmu, bagaimana semboyan tersebut dapat diterapkan untuk menghadapi tantangan keberagaman di Indonesia saat ini? Berikan contoh konkret.
 2. Keberagaman suku, agama, budaya, dan norma dapat menjadi kekuatan sekaligus tantangan bagi bangsa Indonesia. Jelaskan hubungan Bhinneka Tunggal Ika dengan upaya membangun harmoni dalam keberagaman. Sertakan contoh tindakan toleransi, kerja sama, atau gotong royong yang dapat dilakukan dalam kehidupan sehari-hari.`,
       },
@@ -460,7 +460,7 @@ Kepercayaan mengurangi kecurigaan dan prasangka terhadap kelompok lain. Kepercay
 d. Mewujudkan Bhinneka Tunggal Ika dalam Kehidupan Sehari-hari:
 Di sekolah, siswa bekerja sama dengan teman yang berbeda suku, agama, atau latar belakang sosial. Di masyarakat, warga mengikuti kegiatan gotong royong tanpa membedakan identitas.
 
-Soal Esai Refleksi Modul 2:
+Soal Esai Refleksi Materi 2:
 1. Indonesia memiliki keberagaman norma, agama, suku bangsa, ras, dan golongan. Jelaskan mengapa sikap toleransi diperlukan untuk menjaga persatuan dan kesatuan bangsa di tengah keberagaman tersebut!
 2. Bhinneka Tunggal Ika merupakan salah satu modal sosial bangsa Indonesia. Jelaskan tiga unsur penting yang dapat memperkuat Bhinneka Tunggal Ika sebagai modal sosial, serta berikan contoh penerapannya dalam kehidupan sehari-hari!`,
       },
@@ -809,7 +809,7 @@ Revitalisasi kesejahteraan rakyat menempatkan rakyat sebagai sasaran utama pemba
 • Mengembangkan jaminan dan perlindungan sosial bagi masyarakat yang membutuhkan.
 • Menciptakan iklim usaha yang sehat dan memberikan kepastian hukum.
 
-Soal Esai Refleksi Modul 4:
+Soal Esai Refleksi Materi 4:
 1. Jelaskan dua ciri Sistem Ekonomi Pancasila dan berikan contoh penerapannya dalam kehidupan sehari-hari!
 2. Menurut pendapatmu, bagaimana cara menerapkan semangat gotong royong untuk mewujudkan perekonomian yang adil dan meningkatkan kesejahteraan masyarakat? Berikan minimal dua contoh!`,
       },
@@ -963,11 +963,11 @@ const chessLevels = [
 ] as const;
 
 async function main() {
-  console.log("Menghapus modul lama di luar Modul 1-4...");
+  console.log("Menghapus modul lama di luar Materi 1-4...");
   await prisma.chessLevel.deleteMany({ where: { number: { gt: 4 } } });
   await prisma.module.deleteMany({ where: { order: { gt: 4 } } });
 
-  console.log("Menyiapkan 4 Modul Bab III: Bhinneka Tunggal Ika...");
+  console.log("Menyiapkan 4 Materi Bab III: Bhinneka Tunggal Ika...");
   for (const m of modules) {
     const mod = await prisma.module.upsert({
       where: { order: m.order },
@@ -1016,10 +1016,10 @@ async function main() {
 
     await prisma.quiz.upsert({
       where: { moduleId: mod.id },
-      update: { title: `Kuis Modul ${m.order}: ${m.title}` },
+      update: { title: `Kuis Materi ${m.order}: ${m.title}` },
       create: {
         moduleId: mod.id,
-        title: `Kuis Modul ${m.order}: ${m.title}`,
+        title: `Kuis Materi ${m.order}: ${m.title}`,
         difficulty:
           m.order === 1 ? "EASY" : m.order <= 3 ? "MEDIUM" : "HARD",
       },

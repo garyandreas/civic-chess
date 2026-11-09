@@ -41,11 +41,11 @@ export default async function MateriDetailPage({
         </div>
       </div>
 
-      {/* Judul modul di latar putih */}
+      {/* Judul materi di latar putih */}
       <div className="bg-white px-6 sm:px-14 py-6">
         <div className="max-w-5xl mx-auto">
           <div className="text-sm sm:text-base font-bold text-[#00529B] uppercase tracking-wide">
-            Modul {mod.order} — {mod.title}
+            Materi {mod.order} — {mod.title}
           </div>
           <h1 className="mt-1 text-2xl sm:text-3xl font-bold text-[#0B2545]">
             BAB III: Bhinneka Tunggal Ika sebagai Pemersatu Bangsa

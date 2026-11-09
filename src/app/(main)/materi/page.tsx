@@ -51,7 +51,7 @@ export default async function MateriPage() {
           Materi Pembelajaran
         </h1>
         <p className="mt-1.5 text-base sm:text-xl font-medium text-gray-800">
-          {totalModules} modul PPKn BAB III: Bhinneka Tunggal Ika sebagai
+          {totalModules} materi PPKn BAB III: Bhinneka Tunggal Ika sebagai
           Pemersatu Bangsa
         </p>
 
@@ -112,7 +112,7 @@ export default async function MateriPage() {
               Progress Kamu ({overallPct}%)
             </span>
             <span className="text-[#0B2545]">
-              {completedCount} dari {totalModules} modul selesai
+              {completedCount} dari {totalModules} materi selesai
             </span>
           </div>
         </div>

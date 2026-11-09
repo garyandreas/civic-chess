@@ -1,6 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
+import { isQuizUnlocked } from "@/lib/progress";
 import { QuizRunner } from "./quiz-runner";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +28,14 @@ export default async function QuizDetailPage({
   );
 
   if (!mod || !mod.quiz) notFound();
+
+  // Quis hanya terbuka jika seluruh halaman materi sudah dibaca (progres >= 80%)
+  const progress = await prisma.moduleProgress.findUnique({
+    where: { userId_moduleId: { userId: user.id, moduleId: mod.id } },
+  });
+  if (!isQuizUnlocked(progress)) {
+    redirect(`/quiz?terkunci=${mod.order}`);
+  }
 
   const savedEssay = await prisma.essaySubmission.findUnique({
     where: { userId_moduleId: { userId: user.id, moduleId: mod.id } },

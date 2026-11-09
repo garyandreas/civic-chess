@@ -207,7 +207,7 @@ export function ProfilClient({
           <div className="mt-4 flex flex-wrap justify-end gap-6">
             <div className="bg-white text-black rounded-xl px-10 py-3 min-w-[170px] text-center shadow-xs">
               <span className="text-xl sm:text-2xl font-bold">
-                Modul {completedModules}/{totalModules}
+                Materi {completedModules}/{totalModules}
               </span>
             </div>
 

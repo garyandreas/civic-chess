@@ -1,15 +1,15 @@
 /**
- * Daftar Link Video YouTube untuk Setiap Modul (Modul 1 s.d. Modul 4).
+ * Daftar Link Video YouTube untuk Setiap Materi (Materi 1 s.d. Materi 4).
  *
- * Cara menambahkan video untuk modul lain:
+ * Cara menambahkan video untuk materi lain:
  * Cukup tempelkan link YouTube (format youtu.be/... atau youtube.com/watch?v=...)
- * pada nomor modul yang sesuai di bawah ini.
+ * pada nomor materi yang sesuai di bawah ini.
  */
 export const MODULE_YOUTUBE_LINKS: Record<number, string> = {
   1: "https://youtu.be/iXiVCXo13SE?si=0kTxqzsxka0nSWLt",
-  2: "", // Tambahkan link YouTube Modul 2 di sini
-  3: "", // Tambahkan link YouTube Modul 3 di sini
-  4: "", // Tambahkan link YouTube Modul 4 di sini
+  2: "", // Tambahkan link YouTube Materi 2 di sini
+  3: "", // Tambahkan link YouTube Materi 3 di sini
+  4: "", // Tambahkan link YouTube Materi 4 di sini
 };
 
 /**

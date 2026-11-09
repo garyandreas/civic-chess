@@ -15,7 +15,7 @@ export async function POST(req: Request) {
 
     const mod = await prisma.module.findUnique({ where: { order } });
     if (!mod) {
-      return NextResponse.json({ error: "Modul tidak ditemukan" }, { status: 404 });
+      return NextResponse.json({ error: "Materi tidak ditemukan" }, { status: 404 });
     }
 
     const existing = await prisma.moduleProgress.findUnique({

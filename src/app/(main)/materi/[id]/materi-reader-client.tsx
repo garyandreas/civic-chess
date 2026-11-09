@@ -92,8 +92,8 @@ function buildSlides(
   slides.push({
     index: slides.length,
     sectionOrder: sections.length + 1,
-    sectionTitle: `Ringkasan Materi Modul ${moduleOrder}`,
-    partLabel: "Halaman Akhir — Intisari Modul",
+    sectionTitle: `Ringkasan Materi ${moduleOrder}`,
+    partLabel: "Halaman Akhir — Intisari Materi",
     paragraphs: summaryParas,
     isSummary: true,
   });
@@ -154,7 +154,7 @@ export function MateriReaderClient({
     }
   }
 
-  // Tandai materi + ringkasan selesai (progres modul 90%) hanya ketika semua halaman telah dibaca berurutan sampai ringkasan muncul
+  // Tandai materi + ringkasan selesai (progres materi 90%) hanya ketika semua halaman telah dibaca berurutan sampai ringkasan muncul
   useEffect(() => {
     if (
       currentSlide === totalSlides - 1 &&
@@ -379,7 +379,7 @@ export function MateriReaderClient({
       <div className="bg-[#E6ECFA] px-6 sm:px-14 py-7">
         <div className="max-w-3xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-6">
           <Link
-            href={`/video?modul=${moduleOrder}`}
+            href={`/video?materi=${moduleOrder}`}
             className="bg-white border border-[#3A75B5] rounded-xl py-4 px-6 flex items-center justify-center gap-3 text-sm sm:text-base font-semibold text-[#0B2545] hover:shadow-md transition"
           >
             <PlaySquare className="w-6 h-6 fill-[#0B2545] text-white" />

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { isQuizUnlocked } from "@/lib/progress";
 
 export async function POST(req: Request) {
   try {
@@ -17,6 +18,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "moduleId wajib diisi" }, { status: 400 });
     }
 
+    const progress = await prisma.moduleProgress.findUnique({
+      where: { userId_moduleId: { userId: user.id, moduleId } },
+    });
+    if (!isQuizUnlocked(progress)) {
+      return NextResponse.json(
+        { error: "Quis masih terkunci. Selesaikan seluruh halaman materi dulu." },
+        { status: 403 }
+      );
+    }
+
     const existing = await prisma.essaySubmission.findUnique({
       where: { userId_moduleId: { userId: user.id, moduleId } },
     });
@@ -31,7 +42,7 @@ export async function POST(req: Request) {
       },
     });
 
-    // Tambah +10 poin saat pertama kali mengumpulkan esai modul tersebut
+    // Tambah +10 poin saat pertama kali mengumpulkan esai materi tersebut
     let bonusPoints = 0;
     if (!existing) {
       bonusPoints = 10;

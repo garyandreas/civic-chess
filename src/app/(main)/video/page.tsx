@@ -6,10 +6,10 @@ export const dynamic = "force-dynamic";
 export default async function VideoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ modul?: string }>;
+  searchParams: Promise<{ materi?: string }>;
 }) {
   const sp = await searchParams;
-  const activeOrder = Number(sp.modul) || 1;
+  const activeOrder = Number(sp.materi) || 1;
 
   const modules = await prisma.module.findMany({
     orderBy: { order: "asc" },

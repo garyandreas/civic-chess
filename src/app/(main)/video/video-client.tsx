@@ -115,7 +115,7 @@ export function VideoClient({
                 </button>
                 {current && (
                   <div className="mt-3 text-white text-sm sm:text-lg font-bold drop-shadow-md">
-                    Modul {current.order} — {current.moduleTitle}
+                    Materi {current.order} — {current.moduleTitle}
                   </div>
                 )}
               </div>
@@ -135,10 +135,10 @@ export function VideoClient({
             <div className="max-w-md p-6 text-center text-white space-y-3">
               <Film className="w-10 h-10 mx-auto text-white/90" />
               <div className="text-base sm:text-lg font-bold">
-                Video Modul {current?.order} Belum Tersedia
+                Video Materi {current?.order} Belum Tersedia
               </div>
               <p className="text-xs sm:text-sm text-white/90">
-                Link video pembelajaran untuk modul ini belum ditambahkan.
+                Link video pembelajaran untuk materi ini belum ditambahkan.
               </p>
               <button
                 type="button"
@@ -208,7 +208,7 @@ export function VideoClient({
                       {item.moduleTitle}
                     </div>
                     <div className="text-xs font-semibold text-gray-600 mt-1">
-                      Modul {item.order}
+                      Materi {item.order}
                     </div>
                   </div>
                 </button>

@@ -5,7 +5,7 @@ export default function PetunjukPage() {
     {
       num: 1,
       title: "Pelajari Materi & Video",
-      desc: "Baca modul materi dan tonton video pembelajaran yang tersedia di setiap bab.",
+      desc: "Baca materi dan tonton video pembelajaran yang tersedia di setiap bab.",
     },
     {
       num: 2,

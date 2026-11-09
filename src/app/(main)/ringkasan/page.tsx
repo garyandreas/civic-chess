@@ -7,10 +7,10 @@ export const dynamic = "force-dynamic";
 export default async function RingkasanPage({
   searchParams,
 }: {
-  searchParams: Promise<{ modul?: string }>;
+  searchParams: Promise<{ materi?: string }>;
 }) {
   const sp = await searchParams;
-  const focusOrder = Number(sp.modul) || 0;
+  const focusOrder = Number(sp.materi) || 0;
 
   await getCurrentUser();
   const modules = await prisma.module.findMany({
@@ -26,7 +26,7 @@ export default async function RingkasanPage({
             Ringkasan Materi
           </h1>
           <p className="mt-2 text-sm sm:text-base font-semibold text-white/95">
-            Poin-poin penting dari setiap modul untuk kamu pelajari kembali
+            Poin-poin penting dari setiap materi untuk kamu pelajari kembali
           </p>
         </div>
       </section>
@@ -47,7 +47,7 @@ export default async function RingkasanPage({
             >
               <div>
                 <h2 className="font-heading text-base sm:text-lg font-bold text-[#0B2545] mb-2.5">
-                  Modul {m.order} — {m.title}
+                  Materi {m.order} — {m.title}
                 </h2>
                 <p className="text-xs sm:text-sm leading-relaxed text-gray-800 whitespace-pre-line">
                   {m.summary}

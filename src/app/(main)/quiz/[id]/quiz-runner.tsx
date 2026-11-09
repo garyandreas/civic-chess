@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, Trophy, RotateCcw } from "lucide-react";
+import { Check, Trophy, RotateCcw, ArrowLeft } from "lucide-react";
 import { ESSAY_QUESTIONS_BY_MODULE } from "@/lib/civic-chess-questions";
 
 type QuestionItem = {
@@ -147,25 +147,15 @@ export function QuizRunner({
                 </div>
 
                 <div className="flex items-center gap-3">
-                  {moduleList.length > 0 && (
-                    <div className="flex items-center gap-1 text-xs">
-                      {moduleList.map((m) => (
-                        <Link
-                          key={m.order}
-                          href={`/quiz/${m.order}`}
-                          className={`px-2.5 py-1 rounded ${
-                            m.order === moduleOrder
-                              ? "bg-[#00529B] text-white font-semibold"
-                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                          }`}
-                        >
-                          Modul {m.order}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
+                  <Link
+                    href="/quiz"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-[#00529B] bg-[#E6ECFA] px-3 py-1.5 rounded-lg hover:bg-[#d6e0f7] transition"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Semua Quis</span>
+                  </Link>
                   <div className="text-xl sm:text-2xl font-normal text-black">
-                    Modul {moduleOrder}
+                    Materi {moduleOrder}
                   </div>
                 </div>
               </div>
@@ -251,7 +241,7 @@ export function QuizRunner({
                 <Trophy className="w-8 h-8 text-[#F5B700]" />
               </div>
               <h2 className="text-2xl font-bold text-black">
-                Quis Modul {moduleOrder} ({moduleTitle}) Selesai!
+                Quis Materi {moduleOrder} ({moduleTitle}) Selesai!
               </h2>
               <p className="text-sm sm:text-base text-gray-800">
                 Skor dan poin telah disimpan ke profil akunmu. Kamu menjawab
@@ -299,7 +289,7 @@ export function QuizRunner({
           <div className="border border-[#3A75B5] rounded-xl p-6 sm:p-10 bg-white space-y-5">
             <div>
               <h2 className="font-condensed-title text-2xl sm:text-3xl font-bold text-black">
-                B. Soal Esai — Modul {moduleOrder}
+                B. Soal Esai — Materi {moduleOrder}
               </h2>
               <p className="text-xs sm:text-sm text-gray-800 mt-1">
                 Petunjuk: Jawablah pertanyaan berikut dengan jelas dan disertai
