@@ -23,9 +23,9 @@ export async function POST(req: Request) {
     const roleRaw = String(body.role ?? "STUDENT").toUpperCase();
     const role: Role = roleRaw === "TEACHER" ? "TEACHER" : "STUDENT";
 
-    if (!name || !email || password.length < 6) {
+    if (!name || !email || password.length < 5) {
       return NextResponse.json(
-        { error: "Nama, email, dan password (minimal 6 karakter) wajib diisi." },
+        { error: "Nama, email, dan password (minimal 5 karakter) wajib diisi." },
         { status: 400 }
       );
     }

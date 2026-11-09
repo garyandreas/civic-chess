@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
@@ -19,8 +19,12 @@ type SavedAccount = {
 
 export function LoginClient({ accounts }: { accounts: SavedAccount[] }) {
   const router = useRouter();
+  const passwordInputRef = useRef<HTMLInputElement | null>(null);
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
+    null
+  );
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -28,6 +32,8 @@ export function LoginClient({ accounts }: { accounts: SavedAccount[] }) {
   const placeholderText = firstAcc
     ? `contoh: @${firstAcc.username} atau ${firstAcc.email}`
     : "contoh: @username atau email@sekolah.id";
+
+  const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -40,7 +46,7 @@ export function LoginClient({ accounts }: { accounts: SavedAccount[] }) {
         redirect: false,
       });
       if (res?.error) {
-        setError("Email/Username atau password salah.");
+        setError("Username/Email atau password salah.");
       } else {
         router.push("/");
         router.refresh();
@@ -52,23 +58,14 @@ export function LoginClient({ accounts }: { accounts: SavedAccount[] }) {
     }
   }
 
-  async function quickLogin(userId: string) {
+  function handleSelectSavedAccount(acc: SavedAccount) {
     setError("");
-    setLoading(true);
-    try {
-      const res = await signIn("credentials", {
-        quickSwitchUserId: userId,
-        redirect: false,
-      });
-      if (!res?.error) {
-        router.push("/");
-        router.refresh();
-      } else {
-        setError("Gagal masuk ke akun tersebut.");
-      }
-    } finally {
-      setLoading(false);
-    }
+    setSelectedAccountId(acc.id);
+    setIdentifier(`@${acc.username}`);
+    setPassword("");
+    setTimeout(() => {
+      passwordInputRef.current?.focus();
+    }, 30);
   }
 
   return (
@@ -89,6 +86,16 @@ export function LoginClient({ accounts }: { accounts: SavedAccount[] }) {
             </div>
           )}
 
+          {selectedAccount && (
+            <div className="bg-[#E6ECFA] border border-[#00529B]/40 text-[#0B2545] text-xs px-3.5 py-2.5 rounded-lg flex items-center justify-between gap-2">
+              <span>
+                Akun dipilih: <strong>{selectedAccount.name}</strong> (@
+                {selectedAccount.username}). Masukkan password di bawah untuk
+                masuk.
+              </span>
+            </div>
+          )}
+
           <div>
             <label className="block text-xs sm:text-sm font-semibold text-black mb-1">
               Username atau Email
@@ -97,7 +104,10 @@ export function LoginClient({ accounts }: { accounts: SavedAccount[] }) {
               type="text"
               required
               value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
+              onChange={(e) => {
+                setIdentifier(e.target.value);
+                setSelectedAccountId(null);
+              }}
               className="w-full border border-[#3A75B5] rounded-lg px-3.5 py-2.5 text-sm text-black focus:outline-hidden focus:ring-2 focus:ring-[#00529B]"
               placeholder={placeholderText}
             />
@@ -108,12 +118,17 @@ export function LoginClient({ accounts }: { accounts: SavedAccount[] }) {
               Password
             </label>
             <input
+              ref={passwordInputRef}
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full border border-[#3A75B5] rounded-lg px-3.5 py-2.5 text-sm text-black focus:outline-hidden focus:ring-2 focus:ring-[#00529B]"
-              placeholder="••••••••"
+              placeholder={
+                selectedAccount
+                  ? `Masukkan password untuk ${selectedAccount.name}`
+                  : "••••••••"
+              }
             />
           </div>
 
@@ -140,36 +155,43 @@ export function LoginClient({ accounts }: { accounts: SavedAccount[] }) {
             </Link>
           </div>
 
-          {/* Daftar Akun Tersimpan (Sinkron Otomatis dengan Database & Edit Profil) */}
+          {/* Daftar Akun Tersimpan (Wajib memasukkan password setelah dipilih) */}
           {accounts.length > 0 && (
             <div className="bg-[#E6ECFA] p-3.5 rounded-xl space-y-2">
               <div className="flex items-center gap-1.5 text-xs font-bold text-[#00529B]">
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Pilih Akun Tersimpan (Masuk Cepat):</span>
+                <span>Pilih Akun Tersimpan (Tetap Wajib Password):</span>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                {accounts.map((acc) => (
-                  <button
-                    key={acc.id}
-                    type="button"
-                    disabled={loading}
-                    onClick={() => quickLogin(acc.id)}
-                    className="bg-white border border-[#3A75B5] text-black text-xs py-2 px-2.5 rounded-lg hover:bg-gray-50 cursor-pointer text-left transition flex items-center gap-2"
-                  >
-                    <span
-                      className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold text-[#0B2545] shrink-0"
-                      style={{ backgroundColor: acc.avatarColor }}
+                {accounts.map((acc) => {
+                  const isSelected = acc.id === selectedAccountId;
+                  return (
+                    <button
+                      key={acc.id}
+                      type="button"
+                      disabled={loading}
+                      onClick={() => handleSelectSavedAccount(acc)}
+                      className={`bg-white border text-black text-xs py-2 px-2.5 rounded-lg hover:bg-gray-50 cursor-pointer text-left transition flex items-center gap-2 ${
+                        isSelected
+                          ? "border-[#00529B] ring-2 ring-[#00529B]"
+                          : "border-[#3A75B5]"
+                      }`}
                     >
-                      {acc.name.charAt(0).toUpperCase()}
-                    </span>
-                    <div className="min-w-0">
-                      <div className="font-bold truncate">{acc.name}</div>
-                      <div className="text-[10px] text-gray-600 truncate">
-                        @{acc.username} • {acc.points} Poin
+                      <span
+                        className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold text-[#0B2545] shrink-0"
+                        style={{ backgroundColor: acc.avatarColor }}
+                      >
+                        {acc.name.charAt(0).toUpperCase()}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="font-bold truncate">{acc.name}</div>
+                        <div className="text-[10px] text-gray-600 truncate">
+                          @{acc.username} • {acc.points} Poin
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}

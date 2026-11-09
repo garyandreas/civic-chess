@@ -257,12 +257,12 @@ export default function RegisterPage() {
 
             <div>
               <label className="block text-xs sm:text-sm font-semibold text-black mb-1">
-                Password (min. 6 karakter)
+                Password (min. 5 karakter)
               </label>
               <input
                 type="password"
                 required
-                minLength={6}
+                minLength={5}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full border border-[#3A75B5] rounded-lg px-3.5 py-2 text-sm text-black focus:outline-hidden focus:ring-2 focus:ring-[#00529B]"

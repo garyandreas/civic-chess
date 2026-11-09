@@ -1052,36 +1052,70 @@ async function main() {
           "garry@civicchess.id",
           "raja@civicchess.id",
           "junisah@civicchess.id",
+          "eka@civicchess.id",
         ],
       },
     },
   });
 
-  const passwordHash = await bcrypt.hash("password123", 10);
-  const demo = [
-    {
+  const sitiPasswordHash = await bcrypt.hash("12345", 10);
+  const garyPasswordHash = await bcrypt.hash("54321", 10);
+
+  await prisma.user.upsert({
+    where: { email: "siti@civicchess.id" },
+    update: {
+      name: "Siti Hadriyani",
+      username: "siti_hadriyani",
+      passwordHash: sitiPasswordHash,
+      points: 0,
+    },
+    create: {
       name: "Siti Hadriyani",
       username: "siti_hadriyani",
       email: "siti@civicchess.id",
+      passwordHash: sitiPasswordHash,
+      className: "XI IPA 1",
+      school: "SMA Negeri 1",
       points: 0,
     },
-    {
-      name: "Eka Santi",
-      username: "ekasanti",
-      email: "eka@civicchess.id",
-      points: 0,
+  });
+
+  // Jika user sudah pernah membuat akun Gary dengan email lain, perbarui passwordnya ke 54321;
+  // jika belum ada, buat akun Gary (@gary) dengan password 54321
+  const existingGary = await prisma.user.findFirst({
+    where: {
+      OR: [
+        { username: { contains: "gary", mode: "insensitive" } },
+        { name: { contains: "gary", mode: "insensitive" } },
+      ],
     },
-  ];
-  for (const u of demo) {
+  });
+
+  if (existingGary) {
+    await prisma.user.update({
+      where: { id: existingGary.id },
+      data: {
+        passwordHash: garyPasswordHash,
+        points: 0,
+      },
+    });
+  } else {
     await prisma.user.upsert({
-      where: { email: u.email },
-      // Jangan menimpa nama/username jika sudah diedit oleh user melalui halaman Profil
-      update: { points: 0 },
+      where: { email: "gary@civicchess.id" },
+      update: {
+        name: "Gary",
+        username: "gary",
+        passwordHash: garyPasswordHash,
+        points: 0,
+      },
       create: {
-        ...u,
-        passwordHash,
+        name: "Gary",
+        username: "gary",
+        email: "gary@civicchess.id",
+        passwordHash: garyPasswordHash,
         className: "XI IPA 1",
         school: "SMA Negeri 1",
+        points: 0,
       },
     });
   }

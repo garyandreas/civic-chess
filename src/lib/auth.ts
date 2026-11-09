@@ -16,23 +16,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         identifier: { label: "Email atau Username", type: "text" },
         email: { label: "Email", type: "text" },
         password: { label: "Password", type: "password" },
-        quickSwitchUserId: { label: "Quick Switch User ID", type: "text" },
       },
       async authorize(credentials) {
-        const quickId = credentials?.quickSwitchUserId as string | undefined;
-        if (quickId) {
-          const quickUser = await prisma.user.findUnique({
-            where: { id: quickId },
-          });
-          if (!quickUser) return null;
-          return {
-            id: quickUser.id,
-            name: quickUser.name,
-            email: quickUser.email,
-            role: quickUser.role,
-          };
-        }
-
         const rawId =
           (credentials?.identifier as string | undefined) ??
           (credentials?.email as string | undefined);
