@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Play, Film } from "lucide-react";
+import { MODULE_YOUTUBE_LINKS, extractYouTubeId } from "@/lib/video-links";
 
 type VideoItem = {
   order: number;
@@ -21,6 +22,15 @@ const thumbColors: Record<number, { bg: string; iconColor: string }> = {
   6: { bg: "#9EE0EE", iconColor: "#FFFFFF" },
 };
 
+function getModuleYouTubeId(item?: VideoItem): string | null {
+  if (!item) return null;
+  const configuredLink = MODULE_YOUTUBE_LINKS[item.order];
+  if (configuredLink) {
+    return extractYouTubeId(configuredLink);
+  }
+  return extractYouTubeId(item.youtubeId);
+}
+
 export function VideoClient({
   items,
   initialOrder,
@@ -31,17 +41,11 @@ export function VideoClient({
   const router = useRouter();
   const [selectedOrder, setSelectedOrder] = useState(initialOrder);
   const [playing, setPlaying] = useState(false);
-  const [videoError, setVideoError] = useState(false);
-  const [missingThumbs, setMissingThumbs] = useState<Record<number, boolean>>(
-    {}
-  );
 
   const current =
     items.find((i) => i.order === selectedOrder) ?? items[0];
 
-  const currentOrder = current?.order ?? 1;
-  const videoFileSrc = `/videos/modul-${currentOrder}.mp4`;
-  const hasMainPreview = !missingThumbs[currentOrder];
+  const currentYtId = getModuleYouTubeId(current);
 
   async function markVideoWatched(order: number) {
     try {
@@ -57,9 +61,10 @@ export function VideoClient({
   }
 
   function handleStartPlay(order: number) {
-    setVideoError(false);
     setPlaying(true);
-    markVideoWatched(order);
+    if (currentYtId) {
+      markVideoWatched(order);
+    }
   }
 
   return (
@@ -81,27 +86,19 @@ export function VideoClient({
         </div>
 
         {/* Area Pemutar Video */}
-        <div className="w-full rounded-xl bg-[#D98282] min-h-[240px] sm:min-h-[380px] flex flex-col items-center justify-center relative overflow-hidden shadow-sm border border-[#3A75B5]">
+        <div className="w-full rounded-xl bg-[#D98282] min-h-[240px] sm:min-h-[420px] flex flex-col items-center justify-center relative overflow-hidden shadow-sm border border-[#3A75B5]">
           {!playing ? (
             <div
               onClick={() => current && handleStartPlay(current.order)}
-              className="w-full h-full min-h-[240px] sm:min-h-[380px] flex flex-col items-center justify-center relative cursor-pointer group"
+              className="w-full h-full min-h-[240px] sm:min-h-[420px] flex flex-col items-center justify-center relative cursor-pointer group"
             >
-              {/* Frame preview dari video asli jika file tersedia */}
-              {hasMainPreview && (
+              {/* Thumbnail Preview Otomatis dari YouTube jika link tersedia */}
+              {currentYtId && (
                 <>
-                  <video
-                    key={`preview-${currentOrder}`}
-                    src={`${videoFileSrc}#t=1`}
-                    preload="metadata"
-                    muted
-                    playsInline
-                    onError={() =>
-                      setMissingThumbs((prev) => ({
-                        ...prev,
-                        [currentOrder]: true,
-                      }))
-                    }
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`https://i.ytimg.com/vi/${currentYtId}/hqdefault.jpg`}
+                    alt={current?.moduleTitle ?? "Thumbnail Video"}
                     className="absolute inset-0 w-full h-full object-cover pointer-events-none"
                   />
                   <div className="absolute inset-0 bg-black/35 group-hover:bg-black/25 transition pointer-events-none" />
@@ -123,19 +120,16 @@ export function VideoClient({
                 )}
               </div>
             </div>
-          ) : !videoError ? (
-            <div className="w-full bg-black flex flex-col">
-              <video
-                key={videoFileSrc}
-                src={videoFileSrc}
-                controls
-                autoPlay
-                onEnded={() => current && markVideoWatched(current.order)}
-                onError={() => setVideoError(true)}
-                className="w-full max-h-[480px] aspect-video bg-black"
-              >
-                Browser kamu tidak mendukung pemutar video HTML5.
-              </video>
+          ) : currentYtId ? (
+            <div className="w-full aspect-video bg-black">
+              <iframe
+                key={currentYtId}
+                src={`https://www.youtube.com/embed/${currentYtId}?autoplay=1&rel=0`}
+                title={current?.moduleTitle ?? "Video Pembelajaran"}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                className="w-full h-full min-h-[260px] sm:min-h-[420px] border-0"
+              />
             </div>
           ) : (
             <div className="max-w-md p-6 text-center text-white space-y-3">
@@ -144,14 +138,11 @@ export function VideoClient({
                 Video Modul {current?.order} Belum Tersedia
               </div>
               <p className="text-xs sm:text-sm text-white/90">
-                Video pembelajaran untuk modul ini sedang disiapkan.
+                Link video pembelajaran untuk modul ini belum ditambahkan.
               </p>
               <button
                 type="button"
-                onClick={() => {
-                  setPlaying(false);
-                  setVideoError(false);
-                }}
+                onClick={() => setPlaying(false)}
                 className="mt-1 inline-block bg-black/80 text-white text-xs sm:text-sm px-4 py-2 rounded-lg hover:bg-black cursor-pointer"
               >
                 Kembali
@@ -170,8 +161,7 @@ export function VideoClient({
             {items.map((item) => {
               const style = thumbColors[item.order] ?? thumbColors[1];
               const isSelected = item.order === current?.order;
-              const thumbMissing = !!missingThumbs[item.order];
-              const itemVideoSrc = `/videos/modul-${item.order}.mp4`;
+              const ytId = getModuleYouTubeId(item);
 
               return (
                 <button
@@ -180,7 +170,6 @@ export function VideoClient({
                   onClick={() => {
                     setSelectedOrder(item.order);
                     setPlaying(false);
-                    setVideoError(false);
                   }}
                   className={`text-left border rounded-xl overflow-hidden bg-white transition hover:shadow-md cursor-pointer group ${
                     isSelected
@@ -192,19 +181,12 @@ export function VideoClient({
                     className="h-28 flex items-center justify-center rounded-b-lg relative overflow-hidden"
                     style={{ backgroundColor: style.bg }}
                   >
-                    {!thumbMissing && (
+                    {ytId && (
                       <>
-                        <video
-                          src={`${itemVideoSrc}#t=1`}
-                          preload="metadata"
-                          muted
-                          playsInline
-                          onError={() =>
-                            setMissingThumbs((prev) => ({
-                              ...prev,
-                              [item.order]: true,
-                            }))
-                          }
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={`https://i.ytimg.com/vi/${ytId}/hqdefault.jpg`}
+                          alt={item.moduleTitle}
                           className="absolute inset-0 w-full h-full object-cover pointer-events-none"
                         />
                         <div className="absolute inset-0 bg-black/25 group-hover:bg-black/15 transition pointer-events-none" />
@@ -215,8 +197,8 @@ export function VideoClient({
                       <Play
                         className="w-4 h-4 ml-0.5"
                         style={{
-                          color: !thumbMissing ? "#FFFFFF" : style.iconColor,
-                          fill: !thumbMissing ? "#FFFFFF" : style.iconColor,
+                          color: ytId ? "#FFFFFF" : style.iconColor,
+                          fill: ytId ? "#FFFFFF" : style.iconColor,
                         }}
                       />
                     </div>

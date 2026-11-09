@@ -290,7 +290,7 @@ Soal Esai Refleksi Modul 1:
       "Bhinneka Tunggal Ika merupakan semboyan negara Indonesia yang berasal dari ungkapan dalam kitab Kakawin Sutasoma karya Mpu Tantular pada masa Kerajaan Majapahit. Semboyan ini berarti berbeda-beda tetapi tetap satu. Secara historis, ungkapan tersebut berkaitan dengan toleransi dalam keberagaman agama, sedangkan dalam konteks Indonesia saat ini, maknanya mencakup penghormatan terhadap berbagai perbedaan dan penguatan persatuan bangsa. Bhinneka Tunggal Ika juga menjadi bagian dari lambang negara Garuda Pancasila dan memiliki dasar hukum dalam peraturan perundang-undangan Indonesia. Nilai-nilai utama yang terkandung dalam semboyan ini meliputi toleransi, penghormatan terhadap perbedaan, persatuan, kerja sama, dan gotong royong.",
     video: {
       title: "Asal-Usul dan Makna Bhinneka Tunggal Ika",
-      youtubeId: "",
+      youtubeId: "https://youtu.be/iXiVCXo13SE?si=0kTxqzsxka0nSWLt",
       duration: "08:45",
     },
     questions: [

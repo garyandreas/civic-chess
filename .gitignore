@@ -30,6 +30,12 @@
 # Prisma generated client (otomatis dibuat ulang lewat postinstall / prisma generate)
 /src/generated/prisma
 
+# Video lokal berukuran besar (sekarang menggunakan link YouTube di src/lib/video-links.ts)
+/public/videos/*.mp4
+/public/videos/*.mov
+/public/videos/*.mkv
+!/public/videos/.gitkeep
+
 # Editor & OS files
 /.vscode/
 /.idea/
