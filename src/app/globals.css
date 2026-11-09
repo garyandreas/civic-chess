@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: #ffffff;
+  --color-foreground: #111827;
+  --color-primary: #00529B;
+  --color-primary-dark: #0B2545;
+  --color-primary-light: #13315C;
+  --color-secondary: #8FD0EF;
+  --color-accent: #D97706;
+  --color-secondary-light: #B8E4F9;
+  --font-sans: var(--font-sans-body), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-serif-heading), Georgia, serif;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans-body), system-ui, -apple-system, sans-serif;
+  font-variant-numeric: lining-nums tabular-nums;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Heading hangat berkarakter (Fraunces) namun dengan angka lining yang tegas */
+h1,
+.font-condensed-title,
+.font-heading {
+  font-family: var(--font-serif-heading), Georgia, serif;
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Pastikan seluruh angka di kartu, skor, persentase, dan tabel selalu sejajar & jelas */
+button,
+input,
+select,
+textarea,
+table,
+span,
+p,
+div {
+  font-variant-numeric: lining-nums;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 3px;
+}

@@ -1,0 +1,176 @@
+// Civic Chess — skema database produksi (progres tersimpan per akun)
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum Role {
+  STUDENT
+  TEACHER
+  ADMIN
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum GameResult {
+  WIN
+  LOSE
+  DRAW
+}
+
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  username      String?  @unique
+  email         String   @unique
+  passwordHash  String
+  role          Role     @default(STUDENT)
+  className     String   @default("XI IPA 1")
+  school        String?  @default("SMA Negeri 1")
+  bio           String?  @default("Pelajar PPKn Civic Chess")
+  avatarColor   String   @default("#A7F3D0")
+  points        Int      @default(0)
+  notifEnabled  Boolean  @default(true)
+  soundEnabled  Boolean  @default(true)
+  publicProfile Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  progress         ModuleProgress[]
+  quizAttempts     QuizAttempt[]
+  chessGames       ChessGame[]
+  essaySubmissions EssaySubmission[]
+}
+
+model Module {
+  id          String   @id @default(cuid())
+  order       Int      @unique
+  title       String
+  subtitle    String
+  description String
+  color       String
+  summary     String
+
+  sections         Section[]
+  videos           Video[]
+  quiz             Quiz?
+  questions        Question[]
+  chessLevels      ChessLevel[]
+  progress         ModuleProgress[]
+  essaySubmissions EssaySubmission[]
+}
+
+model Section {
+  id       String @id @default(cuid())
+  moduleId String
+  order    Int
+  title    String
+  content  String
+  module   Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([moduleId, order])
+}
+
+model Video {
+  id        String @id @default(cuid())
+  moduleId  String
+  title     String
+  youtubeId String
+  duration  String
+  module    Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+}
+
+model ModuleProgress {
+  id          String    @id @default(cuid())
+  userId      String
+  moduleId    String
+  readDone    Boolean   @default(false)
+  videoDone   Boolean   @default(false)
+  summaryDone Boolean   @default(false)
+  quizDone    Boolean   @default(false)
+  completedAt DateTime?
+  updatedAt   DateTime  @updatedAt
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module      Module    @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, moduleId])
+}
+
+model Quiz {
+  id         String        @id @default(cuid())
+  moduleId   String        @unique
+  title      String
+  difficulty Difficulty    @default(MEDIUM)
+  module     Module        @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  attempts   QuizAttempt[]
+}
+
+model Question {
+  id          String @id @default(cuid())
+  moduleId    String
+  text        String
+  options     String
+  answerIndex Int
+  explanation String
+  module      Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+}
+
+model QuizAttempt {
+  id        String   @id @default(cuid())
+  userId    String
+  quizId    String
+  correct   Int
+  total     Int
+  score     Int
+  points    Int
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quiz      Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+}
+
+model EssaySubmission {
+  id        String   @id @default(cuid())
+  userId    String
+  moduleId  String
+  answers   String
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module    Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, moduleId])
+}
+
+model ChessLevel {
+  id          String      @id @default(cuid())
+  number      Int         @unique
+  title       String
+  description String
+  difficulty  Difficulty
+  botDepth    Int
+  blunderRate Int
+  moduleId    String
+  module      Module      @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  games       ChessGame[]
+}
+
+model ChessGame {
+  id               String     @id @default(cuid())
+  userId           String
+  levelId          String
+  result           GameResult
+  questionsCorrect Int
+  questionsTotal   Int
+  points           Int
+  createdAt        DateTime   @default(now())
+  user             User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  level            ChessLevel @relation(fields: [levelId], references: [id], onDelete: Cascade)
+}
