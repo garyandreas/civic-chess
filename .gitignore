@@ -30,12 +30,6 @@
 # Prisma generated client (otomatis dibuat ulang lewat postinstall / prisma generate)
 /src/generated/prisma
 
-# Video lokal berukuran besar (>100MB ditolak oleh batas file GitHub)
-/public/videos/*.mp4
-/public/videos/*.mov
-/public/videos/*.mkv
-!/public/videos/.gitkeep
-
 # Editor & OS files
 /.vscode/
 /.idea/
