@@ -54,6 +54,7 @@ export default async function ChessLevelPlayPage({
       moduleOrder={lvl.module.order}
       moduleTitle={lvl.module.title}
       initialPoints={user.points}
+      initialSoundEnabled={user.soundEnabled}
       questions={questions}
     />
   );

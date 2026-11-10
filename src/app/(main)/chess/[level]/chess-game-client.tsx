@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { Chess, type Square } from "chess.js";
+import { Chess, type Square, type Move } from "chess.js";
 import {
   Check,
   RotateCcw,
@@ -10,6 +10,9 @@ import {
   Sparkles,
   AlertTriangle,
   HelpCircle,
+  Volume2,
+  VolumeX,
+  Music,
 } from "lucide-react";
 import {
   chooseBotMove,
@@ -19,6 +22,7 @@ import {
   findBlunderMove,
   formatEval,
 } from "@/lib/chess-engine";
+import { chessAudio } from "@/lib/chess-audio";
 
 type QuestionItem = {
   id: string;
@@ -63,6 +67,7 @@ export function ChessGameClient({
   moduleOrder,
   moduleTitle,
   initialPoints = 0,
+  initialSoundEnabled = true,
   questions,
 }: {
   levelId: string;
@@ -72,6 +77,7 @@ export function ChessGameClient({
   moduleOrder: number;
   moduleTitle: string;
   initialPoints?: number;
+  initialSoundEnabled?: boolean;
   questions: QuestionItem[];
 }) {
   const gameRef = useRef<Chess>(new Chess());
@@ -82,6 +88,11 @@ export function ChessGameClient({
     null
   );
   const [points, setPoints] = useState(initialPoints);
+
+  // Pengaturan Efek Suara (SFX) & Musik Santai (BGM)
+  const [sfxOn, setSfxOn] = useState(initialSoundEnabled);
+  const [bgmOn, setBgmOn] = useState(initialSoundEnabled);
+  const bgmStartedRef = useRef(false);
 
   // Evaluasi bar penguasaan permainan (centipawn, positif = Putih unggul)
   const [evalCp, setEvalCp] = useState<number>(0);
@@ -106,6 +117,52 @@ export function ChessGameClient({
   } | null>(null);
   const [blunderNotice, setBlunderNotice] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    chessAudio.setSfxEnabled(sfxOn);
+  }, [sfxOn]);
+
+  useEffect(() => {
+    chessAudio.setBgmEnabled(bgmOn);
+    if (bgmOn && bgmStartedRef.current) {
+      chessAudio.startBgm();
+    }
+  }, [bgmOn]);
+
+  useEffect(() => {
+    return () => {
+      chessAudio.stopBgm();
+    };
+  }, []);
+
+  function ensureBgmStarted() {
+    if (!bgmStartedRef.current) {
+      bgmStartedRef.current = true;
+      if (bgmOn) {
+        chessAudio.startBgm();
+      }
+    }
+  }
+
+  /** Bunyikan efek suara langkah sesuai konteks (makan bidak, skak, skakmat, atau langkah biasa) */
+  function playMoveAudio(g: Chess, move: Move, isBestMoveExecution = false) {
+    if (g.isCheckmate()) {
+      chessAudio.playCheckmate();
+      return;
+    }
+    if (g.inCheck()) {
+      chessAudio.playCheck();
+      return;
+    }
+    if (isBestMoveExecution) {
+      chessAudio.playBestMove();
+    }
+    if (move.captured) {
+      chessAudio.playCapture();
+    } else {
+      chessAudio.playMove();
+    }
+  }
 
   const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
   const ranks = ["8", "7", "6", "5", "4", "3", "2", "1"];
@@ -166,12 +223,18 @@ export function ChessGameClient({
       const botMove = chooseBotMove(g, botDepth, blunderRate);
       if (!botMove) return;
 
-      g.move(botMove);
+      const applied = g.move(botMove);
+      if (applied) {
+        playMoveAudio(g, applied, false);
+      }
       setLastMove({ from: botMove.from as Square, to: botMove.to as Square });
       updateBoardState();
 
       if (g.isGameOver()) {
         const res = g.isCheckmate() ? "LOSE" : "DRAW";
+        if (res === "LOSE") {
+          setTimeout(() => chessAudio.playGameLose(), 350);
+        }
         saveGameResult(res);
         setStatusMessage(
           res === "LOSE"
@@ -184,10 +247,15 @@ export function ChessGameClient({
       if (afterBotCallback) {
         afterBotCallback();
       }
-    }, 320);
+    }, 350);
   }
 
-  function executePlayerMove(from: Square, to: Square) {
+  function executePlayerMove(
+    from: Square,
+    to: Square,
+    isBestMoveExecution = false
+  ) {
+    ensureBgmStarted();
     const g = gameRef.current;
     if (g.isGameOver() || g.turn() !== "w") return;
 
@@ -202,6 +270,7 @@ export function ChessGameClient({
 
     if (!move) return;
 
+    playMoveAudio(g, move, isBestMoveExecution);
     setLastMove({ from: move.from as Square, to: move.to as Square });
     setBestMoveHint(null);
     setBlunderNotice(null);
@@ -209,6 +278,9 @@ export function ChessGameClient({
 
     if (g.isGameOver()) {
       const res = g.isCheckmate() ? "WIN" : "DRAW";
+      if (res === "WIN") {
+        setTimeout(() => chessAudio.playGameWin(), 350);
+      }
       setPoints((p) => p + (res === "WIN" ? 50 : 10));
       saveGameResult(res);
       setStatusMessage(
@@ -233,6 +305,7 @@ export function ChessGameClient({
       if (shouldTriggerQuiz && !gameRef.current.isGameOver()) {
         setChosenOpt(null);
         setQuizActive(true);
+        chessAudio.playQuestionAppear();
         setStatusMessage(
           "Jawab pertanyaan di kiri! Benar = Sugesti Best Move, Salah = 1 Langkah Blunder otomatis."
         );
@@ -241,11 +314,13 @@ export function ChessGameClient({
   }
 
   function handleSquareClick(sq: Square) {
+    ensureBgmStarted();
     const g = gameRef.current;
     if (g.isGameOver() || g.turn() !== "w") return;
 
     // Jika ada pertanyaan aktif yang belum dijawab, arahkan siswa menjawab dulu
     if (quizActive && chosenOpt === null) {
+      chessAudio.playQuestionAppear();
       setStatusMessage(
         "Selesaikan dulu pertanyaan pilihan ganda di sebelah kiri sebelum melangkah!"
       );
@@ -253,7 +328,9 @@ export function ChessGameClient({
     }
 
     if (selectedSquare && legalTargets.includes(sq)) {
-      executePlayerMove(selectedSquare, sq);
+      const isFollowingBest =
+        bestMoveHint?.from === selectedSquare && bestMoveHint?.to === sq;
+      executePlayerMove(selectedSquare, sq, isFollowingBest);
       return;
     }
 
@@ -269,6 +346,7 @@ export function ChessGameClient({
   }
 
   function handleSelectOption(idx: number) {
+    ensureBgmStarted();
     if (chosenOpt !== null) return;
     setChosenOpt(idx);
     setQuestionsTotal((t) => t + 1);
@@ -277,6 +355,7 @@ export function ChessGameClient({
     const isCorrect = idx === currentQuestion.answerIndex;
 
     if (isCorrect) {
+      chessAudio.playAnswerCorrect();
       setQuestionsCorrect((c) => c + 1);
       setPoints((p) => p + 20);
       syncPointDelta(20);
@@ -284,6 +363,7 @@ export function ChessGameClient({
       // Hitung Best Move untuk Putih
       const best = findBestMove(g, Math.max(2, botDepth));
       if (best) {
+        setTimeout(() => chessAudio.playBestMove(), 260);
         const pieceName = PIECE_NAME_ID[best.move.piece] ?? "Bidak";
         setBestMoveHint({
           from: best.move.from as Square,
@@ -298,7 +378,8 @@ export function ChessGameClient({
         setStatusMessage("Jawaban Benar (+20 Poin)!");
       }
     } else {
-      // Jawaban Salah -> Sistem sengaja membuat 1 langkah blunder otomatis untuk pemain
+      // Jawaban Salah -> bunyikan suara salah lalu suara blunder & jalankan 1 langkah blunder otomatis
+      chessAudio.playAnswerWrong();
       setBestMoveHint(null);
       const blunder = findBlunderMove(g);
       if (blunder && g.turn() === "w" && !g.isGameOver()) {
@@ -309,6 +390,7 @@ export function ChessGameClient({
           promotion: blunder.promotion ?? "q",
         });
         if (applied) {
+          setTimeout(() => chessAudio.playBlunder(), 240);
           setLastMove({
             from: applied.from as Square,
             to: applied.to as Square,
@@ -320,6 +402,9 @@ export function ChessGameClient({
 
           if (g.isGameOver()) {
             const res = g.isCheckmate() ? "WIN" : "DRAW";
+            if (res === "WIN") {
+              setTimeout(() => chessAudio.playGameWin(), 400);
+            }
             saveGameResult(res);
           } else {
             triggerBotTurn();
@@ -345,10 +430,12 @@ export function ChessGameClient({
     setQuizActive(false);
     setChosenOpt(null);
     setQIdx((i) => i + 1);
-    executePlayerMove(from, to);
+    executePlayerMove(from, to, true);
   }
 
   function handleRestart() {
+    ensureBgmStarted();
+    chessAudio.playMove();
     gameRef.current = new Chess();
     setFen(gameRef.current.fen());
     setEvalCp(0);
@@ -392,8 +479,52 @@ export function ChessGameClient({
             </p>
           </div>
 
-          <div className="bg-white/90 border border-[#083B6B]/20 text-[#083B6B] font-bold text-xs sm:text-sm px-4 py-2 rounded-xl">
-            Total Poin: {points}
+          <div className="flex items-center gap-2">
+            {/* Tombol Musik Pengiring (Backsound) */}
+            <button
+              type="button"
+              onClick={() => {
+                const next = !bgmOn;
+                setBgmOn(next);
+                if (next) {
+                  bgmStartedRef.current = true;
+                  chessAudio.setBgmEnabled(true);
+                  chessAudio.startBgm();
+                }
+              }}
+              title="Toggle Musik Pengiring Santai"
+              className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl border transition cursor-pointer ${
+                bgmOn
+                  ? "bg-[#083B6B] text-white border-[#083B6B]"
+                  : "bg-white/80 text-gray-600 border-gray-300"
+              }`}
+            >
+              <Music className="w-3.5 h-3.5" />
+              <span>{bgmOn ? "Musik: ON" : "Musik: OFF"}</span>
+            </button>
+
+            {/* Tombol Efek Suara (SFX) */}
+            <button
+              type="button"
+              onClick={() => setSfxOn((v) => !v)}
+              title="Toggle Efek Suara Catur"
+              className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl border transition cursor-pointer ${
+                sfxOn
+                  ? "bg-[#083B6B] text-white border-[#083B6B]"
+                  : "bg-white/80 text-gray-600 border-gray-300"
+              }`}
+            >
+              {sfxOn ? (
+                <Volume2 className="w-3.5 h-3.5" />
+              ) : (
+                <VolumeX className="w-3.5 h-3.5" />
+              )}
+              <span>{sfxOn ? "SFX: ON" : "SFX: OFF"}</span>
+            </button>
+
+            <div className="bg-white/90 border border-[#083B6B]/20 text-[#083B6B] font-bold text-xs sm:text-sm px-4 py-2 rounded-xl">
+              {points} Poin
+            </div>
           </div>
         </div>
       </section>
