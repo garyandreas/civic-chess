@@ -2,8 +2,23 @@
 
 import { useState, useRef } from "react";
 import Link from "next/link";
-import { Chess, type Square, type Move } from "chess.js";
-import { Check, RotateCcw } from "lucide-react";
+import { Chess, type Square } from "chess.js";
+import {
+  Check,
+  RotateCcw,
+  ArrowLeft,
+  Sparkles,
+  AlertTriangle,
+  HelpCircle,
+} from "lucide-react";
+import {
+  chooseBotMove,
+  evaluatePosition,
+  evalToWhitePercent,
+  findBestMove,
+  findBlunderMove,
+  formatEval,
+} from "@/lib/chess-engine";
 
 type QuestionItem = {
   id: string;
@@ -28,117 +43,29 @@ const PIECE_UNICODE: Record<string, string> = {
   bk: "♚",
 };
 
-const PIECE_VALUE: Record<string, number> = {
-  p: 100,
-  n: 320,
-  b: 330,
-  r: 500,
-  q: 900,
-  k: 20000,
+const PIECE_NAME_ID: Record<string, string> = {
+  p: "Pion",
+  n: "Kuda",
+  b: "Gajah",
+  r: "Benteng",
+  q: "Menteri",
+  k: "Raja",
 };
 
-function evaluateBoard(game: Chess): number {
-  if (game.isCheckmate()) {
-    return game.turn() === "w" ? -99999 : 99999;
-  }
-  if (game.isDraw()) return 0;
-
-  let score = 0;
-  const board = game.board();
-  for (let r = 0; r < 8; r++) {
-    for (let c = 0; c < 8; c++) {
-      const piece = board[r][c];
-      if (!piece) continue;
-      const val = PIECE_VALUE[piece.type] ?? 0;
-      score += piece.color === "w" ? val : -val;
-    }
-  }
-  return score;
-}
-
-function chooseBotMove(
-  game: Chess,
-  depth: number,
-  blunderRate: number
-): Move | null {
-  const moves = game.moves({ verbose: true });
-  if (moves.length === 0) return null;
-
-  if (Math.random() * 100 < blunderRate) {
-    return moves[Math.floor(Math.random() * moves.length)];
-  }
-
-  let bestMove = moves[0];
-  let bestEval = Infinity;
-
-  for (const m of moves) {
-    game.move(m);
-    const val = minimax(
-      game,
-      Math.max(0, depth - 1),
-      -Infinity,
-      Infinity,
-      true
-    );
-    game.undo();
-    const jitter = (Math.random() - 0.5) * 15;
-    if (val + jitter < bestEval) {
-      bestEval = val + jitter;
-      bestMove = m;
-    }
-  }
-  return bestMove;
-}
-
-function minimax(
-  game: Chess,
-  depth: number,
-  alpha: number,
-  beta: number,
-  maximizingWhite: boolean
-): number {
-  if (depth === 0 || game.isGameOver()) {
-    return evaluateBoard(game);
-  }
-  const moves = game.moves({ verbose: true });
-  if (maximizingWhite) {
-    let maxEval = -Infinity;
-    for (const m of moves) {
-      game.move(m);
-      const ev = minimax(game, depth - 1, alpha, beta, false);
-      game.undo();
-      if (ev > maxEval) maxEval = ev;
-      if (ev > alpha) alpha = alpha = ev;
-      if (beta <= alpha) break;
-    }
-    return maxEval;
-  } else {
-    let minEval = Infinity;
-    for (const m of moves) {
-      game.move(m);
-      const ev = minimax(game, depth - 1, alpha, beta, true);
-      game.undo();
-      if (ev < minEval) minEval = ev;
-      if (ev < beta) beta = ev;
-      if (beta <= alpha) break;
-    }
-    return minEval;
-  }
+function randomStepTarget(): number {
+  return Math.random() < 0.5 ? 3 : 4;
 }
 
 export function ChessGameClient({
   levelId,
-  levelNumber,
   botDepth,
   blunderRate,
   moduleOrder,
-  initialPoints = 840,
+  moduleTitle,
+  initialPoints = 0,
   questions,
-  allLevels = [],
 }: {
   levelId: string;
-  levelNumber: number;
-  levelTitle: string;
   difficulty: string;
   botDepth: number;
   blunderRate: number;
@@ -146,21 +73,38 @@ export function ChessGameClient({
   moduleTitle: string;
   initialPoints?: number;
   questions: QuestionItem[];
-  allLevels?: { number: number; title: string }[];
 }) {
   const gameRef = useRef<Chess>(new Chess());
   const [fen, setFen] = useState(gameRef.current.fen());
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [legalTargets, setLegalTargets] = useState<Square[]>([]);
+  const [lastMove, setLastMove] = useState<{ from: Square; to: Square } | null>(
+    null
+  );
   const [points, setPoints] = useState(initialPoints);
-  const [showPieces, setShowPieces] = useState(true);
 
-  // State pertanyaan giliran ini di kartu kanan
+  // Evaluasi bar penguasaan permainan (centipawn, positif = Putih unggul)
+  const [evalCp, setEvalCp] = useState<number>(0);
+
+  // Hitungan langkah menuju pertanyaan berikutnya (setiap 3 atau 4 langkah)
+  const [stepsSinceQuiz, setStepsSinceQuiz] = useState<number>(0);
+  const [nextQuizTarget, setNextQuizTarget] = useState<number>(3);
+
+  // State pertanyaan pilihan ganda di panel kiri
   const [qIdx, setQIdx] = useState(0);
-  const [answering, setAnswering] = useState(false);
+  const [quizActive, setQuizActive] = useState(false);
   const [chosenOpt, setChosenOpt] = useState<number | null>(null);
   const [questionsCorrect, setQuestionsCorrect] = useState(0);
   const [questionsTotal, setQuestionsTotal] = useState(0);
+
+  // Sugesti Best Move (muncul saat jawaban benar) & Info Blunder (muncul saat salah)
+  const [bestMoveHint, setBestMoveHint] = useState<{
+    from: Square;
+    to: Square;
+    san: string;
+    pieceName: string;
+  } | null>(null);
+  const [blunderNotice, setBlunderNotice] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
@@ -169,43 +113,17 @@ export function ChessGameClient({
   const currentQuestion: QuestionItem =
     questions[qIdx % Math.max(1, questions.length)] ?? {
       id: "default",
-      text: "Apa yang dimaksud dengan hak pilih aktif dalam sistem demokrasi Indonesia?",
-      options: [
-        "Hak warga negara untuk memilih wakil rakyat dalam pemilu",
-        "Hak untuk dipilih menjadi pejabat negara",
-        "Kewajiban membayar pajak tepat waktu",
-        "Hak mendirikan organisasi kemasyarakatan",
-      ],
-      answerIndex: 0,
+      text: "Semboyan Bhinneka Tunggal Ika berasal dari kitab Kakawin Sutasoma karya ....",
+      options: ["Mpu Prapanca", "Mpu Tantular", "Mpu Sedah", "Mpu Kanwa"],
+      answerIndex: 1,
       explanation:
-        "Hak pilih aktif adalah hak warga negara untuk memberikan suara (memilih) dalam pemilihan umum.",
+        "Semboyan Bhinneka Tunggal Ika berasal dari kitab Kakawin Sutasoma karya Mpu Tantular.",
     };
 
-  function nextQuestion() {
-    setQIdx((i) => i + 1);
-    setAnswering(false);
-    setChosenOpt(null);
-  }
-
-  function scheduleBotMove() {
-    setTimeout(() => {
-      const g = gameRef.current;
-      if (g.isGameOver() || g.turn() !== "b") return;
-      const botMove = chooseBotMove(g, botDepth, blunderRate);
-      if (!botMove) return;
-      g.move(botMove);
-      setFen(g.fen());
-
-      if (g.isGameOver()) {
-        const res = g.isCheckmate() ? "LOSE" : "DRAW";
-        saveGameResult(res);
-        setStatusMessage(
-          res === "LOSE"
-            ? "Skakmat! Bot menang. Klik Reset Papan untuk main lagi."
-            : "Permainan berakhir seri."
-        );
-      }
-    }, 350);
+  function updateBoardState() {
+    const g = gameRef.current;
+    setFen(g.fen());
+    setEvalCp(evaluatePosition(g, 2));
   }
 
   async function saveGameResult(result: "WIN" | "LOSE" | "DRAW") {
@@ -225,52 +143,6 @@ export function ChessGameClient({
     }
   }
 
-  function handleSquareClick(sq: Square) {
-    const g = gameRef.current;
-    if (g.isGameOver() || g.turn() !== "w") return;
-
-    if (selectedSquare && legalTargets.includes(sq)) {
-      const move = g.move({
-        from: selectedSquare,
-        to: sq,
-        promotion: "q",
-      });
-      setSelectedSquare(null);
-      setLegalTargets([]);
-
-      if (move) {
-        setFen(g.fen());
-        if (g.isGameOver()) {
-          const res = g.isCheckmate() ? "WIN" : "DRAW";
-          setPoints((p) => p + (res === "WIN" ? 50 : 10));
-          saveGameResult(res);
-          setStatusMessage(
-            res === "WIN"
-              ? "Selamat, Skakmat! Kamu menang (+50 Poin)."
-              : "Permainan berakhir seri."
-          );
-          return;
-        }
-        // Saat memakan bidak atau melangkah, tampilkan soal baru di kartu kanan
-        if (move.captured) {
-          setAnswering(true);
-        }
-        scheduleBotMove();
-      }
-      return;
-    }
-
-    const piece = g.get(sq);
-    if (piece && piece.color === "w") {
-      setSelectedSquare(sq);
-      const moves = g.moves({ square: sq, verbose: true });
-      setLegalTargets(moves.map((m) => m.to as Square));
-    } else {
-      setSelectedSquare(null);
-      setLegalTargets([]);
-    }
-  }
-
   async function syncPointDelta(delta: number) {
     try {
       const res = await fetch("/api/chess/point", {
@@ -287,223 +159,545 @@ export function ChessGameClient({
     }
   }
 
+  function triggerBotTurn(afterBotCallback?: () => void) {
+    setTimeout(() => {
+      const g = gameRef.current;
+      if (g.isGameOver() || g.turn() !== "b") return;
+      const botMove = chooseBotMove(g, botDepth, blunderRate);
+      if (!botMove) return;
+
+      g.move(botMove);
+      setLastMove({ from: botMove.from as Square, to: botMove.to as Square });
+      updateBoardState();
+
+      if (g.isGameOver()) {
+        const res = g.isCheckmate() ? "LOSE" : "DRAW";
+        saveGameResult(res);
+        setStatusMessage(
+          res === "LOSE"
+            ? "Skakmat! Bot menang. Klik Reset Papan untuk bermain lagi."
+            : "Permainan berakhir seri."
+        );
+        return;
+      }
+
+      if (afterBotCallback) {
+        afterBotCallback();
+      }
+    }, 320);
+  }
+
+  function executePlayerMove(from: Square, to: Square) {
+    const g = gameRef.current;
+    if (g.isGameOver() || g.turn() !== "w") return;
+
+    const move = g.move({
+      from,
+      to,
+      promotion: "q",
+    });
+
+    setSelectedSquare(null);
+    setLegalTargets([]);
+
+    if (!move) return;
+
+    setLastMove({ from: move.from as Square, to: move.to as Square });
+    setBestMoveHint(null);
+    setBlunderNotice(null);
+    updateBoardState();
+
+    if (g.isGameOver()) {
+      const res = g.isCheckmate() ? "WIN" : "DRAW";
+      setPoints((p) => p + (res === "WIN" ? 50 : 10));
+      saveGameResult(res);
+      setStatusMessage(
+        res === "WIN"
+          ? "Selamat, Skakmat! Kamu menang (+50 Poin)."
+          : "Permainan berakhir seri."
+      );
+      return;
+    }
+
+    const nextCount = stepsSinceQuiz + 1;
+    const shouldTriggerQuiz = nextCount >= nextQuizTarget;
+
+    if (shouldTriggerQuiz) {
+      setStepsSinceQuiz(0);
+      setNextQuizTarget(randomStepTarget());
+    } else {
+      setStepsSinceQuiz(nextCount);
+    }
+
+    triggerBotTurn(() => {
+      if (shouldTriggerQuiz && !gameRef.current.isGameOver()) {
+        setChosenOpt(null);
+        setQuizActive(true);
+        setStatusMessage(
+          "Jawab pertanyaan di kiri! Benar = Sugesti Best Move, Salah = 1 Langkah Blunder otomatis."
+        );
+      }
+    });
+  }
+
+  function handleSquareClick(sq: Square) {
+    const g = gameRef.current;
+    if (g.isGameOver() || g.turn() !== "w") return;
+
+    // Jika ada pertanyaan aktif yang belum dijawab, arahkan siswa menjawab dulu
+    if (quizActive && chosenOpt === null) {
+      setStatusMessage(
+        "Selesaikan dulu pertanyaan pilihan ganda di sebelah kiri sebelum melangkah!"
+      );
+      return;
+    }
+
+    if (selectedSquare && legalTargets.includes(sq)) {
+      executePlayerMove(selectedSquare, sq);
+      return;
+    }
+
+    const piece = g.get(sq);
+    if (piece && piece.color === "w") {
+      setSelectedSquare(sq);
+      const moves = g.moves({ square: sq, verbose: true });
+      setLegalTargets(moves.map((m) => m.to as Square));
+    } else {
+      setSelectedSquare(null);
+      setLegalTargets([]);
+    }
+  }
+
   function handleSelectOption(idx: number) {
     if (chosenOpt !== null) return;
     setChosenOpt(idx);
     setQuestionsTotal((t) => t + 1);
-    if (idx === currentQuestion.answerIndex) {
+
+    const g = gameRef.current;
+    const isCorrect = idx === currentQuestion.answerIndex;
+
+    if (isCorrect) {
       setQuestionsCorrect((c) => c + 1);
       setPoints((p) => p + 20);
       syncPointDelta(20);
-      setStatusMessage("Jawaban benar! +20 Poin tersimpan ke akunmu.");
+
+      // Hitung Best Move untuk Putih
+      const best = findBestMove(g, Math.max(2, botDepth));
+      if (best) {
+        const pieceName = PIECE_NAME_ID[best.move.piece] ?? "Bidak";
+        setBestMoveHint({
+          from: best.move.from as Square,
+          to: best.move.to as Square,
+          san: best.move.san,
+          pieceName,
+        });
+        setStatusMessage(
+          `Jawaban Benar (+20 Poin)! Sugesti Best Move: ${pieceName} dari ${best.move.from.toUpperCase()} ke ${best.move.to.toUpperCase()} (${best.move.san}).`
+        );
+      } else {
+        setStatusMessage("Jawaban Benar (+20 Poin)!");
+      }
     } else {
-      setStatusMessage(
-        `Kurang tepat. Kunci: ${currentQuestion.explanation}`
-      );
+      // Jawaban Salah -> Sistem sengaja membuat 1 langkah blunder otomatis untuk pemain
+      setBestMoveHint(null);
+      const blunder = findBlunderMove(g);
+      if (blunder && g.turn() === "w" && !g.isGameOver()) {
+        const pieceName = PIECE_NAME_ID[blunder.piece] ?? "Bidak";
+        const applied = g.move({
+          from: blunder.from,
+          to: blunder.to,
+          promotion: blunder.promotion ?? "q",
+        });
+        if (applied) {
+          setLastMove({
+            from: applied.from as Square,
+            to: applied.to as Square,
+          });
+          const msg = `Jawaban kurang tepat! Sistem melakukan 1 langkah blunder otomatis: ${pieceName} ${applied.from.toUpperCase()} → ${applied.to.toUpperCase()} (${applied.san}).`;
+          setBlunderNotice(msg);
+          setStatusMessage(msg);
+          updateBoardState();
+
+          if (g.isGameOver()) {
+            const res = g.isCheckmate() ? "WIN" : "DRAW";
+            saveGameResult(res);
+          } else {
+            triggerBotTurn();
+          }
+        }
+      } else {
+        setStatusMessage(
+          `Jawaban kurang tepat. Kunci: ${currentQuestion.explanation}`
+        );
+      }
     }
   }
 
-  function handleSkipQuestion() {
-    setPoints((p) => Math.max(0, p - 10));
-    syncPointDelta(-10);
-    setStatusMessage("Pertanyaan dilewati (-10 Poin dari akunmu).");
-    nextQuestion();
+  function handleCloseQuizCard() {
+    setQuizActive(false);
+    setChosenOpt(null);
+    setQIdx((i) => i + 1);
+  }
+
+  function handleApplyBestMove() {
+    if (!bestMoveHint) return;
+    const { from, to } = bestMoveHint;
+    setQuizActive(false);
+    setChosenOpt(null);
+    setQIdx((i) => i + 1);
+    executePlayerMove(from, to);
   }
 
   function handleRestart() {
     gameRef.current = new Chess();
     setFen(gameRef.current.fen());
+    setEvalCp(0);
     setSelectedSquare(null);
     setLegalTargets([]);
+    setLastMove(null);
+    setBestMoveHint(null);
+    setBlunderNotice(null);
+    setQuizActive(false);
+    setChosenOpt(null);
+    setStepsSinceQuiz(0);
+    setNextQuizTarget(randomStepTarget());
     setStatusMessage(null);
   }
 
   const board = gameRef.current.board();
+  const whitePct = evalToWhitePercent(evalCp);
+  const evalLabel = formatEval(evalCp);
+  const remainingSteps = Math.max(1, nextQuizTarget - stepsSinceQuiz);
   void fen;
 
   return (
     <div className="flex-1 bg-[#EBF0FD] pb-16">
-      {/* Banner salmon/rose sesuai gambar Civic Chess */}
-      <section className="bg-[#E8BDB9] py-8 px-6 rounded-b-2xl text-center">
-        <h1 className="font-condensed-title text-4xl sm:text-5xl font-bold text-[#083B6B] tracking-wide uppercase">
-          CIVIC CHESS
-        </h1>
-      </section>
+      {/* Banner atas Civic Chess */}
+      <section className="bg-[#E8BDB9] py-6 px-6 rounded-b-2xl">
+        <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-4">
+          <Link
+            href="/chess"
+            className="inline-flex items-center gap-1.5 bg-white/90 hover:bg-white text-[#083B6B] font-bold text-xs sm:text-sm px-4 py-2 rounded-xl shadow-xs transition"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Semua Materi Catur</span>
+          </Link>
 
-      <section className="max-w-5xl mx-auto px-6 sm:px-10 mt-6 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-        {/* Kiri: Papan Catur 8x8 Putih & Biru Tua */}
-        <div className="lg:col-span-6 flex flex-col items-center">
-          <div className="w-full max-w-[430px] border-2 border-[#0A0DA8] bg-white shadow-xs">
-            {ranks.map((rank, rIdx) => (
-              <div key={rank} className="grid grid-cols-8">
-                {files.map((file, fIdx) => {
-                  const sq = `${file}${rank}` as Square;
-                  const piece = board[rIdx][fIdx];
-                  const isLight = (rIdx + fIdx) % 2 === 0;
-                  const isSelected = selectedSquare === sq;
-                  const isTarget = legalTargets.includes(sq);
-
-                  const bgClass = isSelected
-                    ? "bg-[#F5B700]"
-                    : isLight
-                    ? "bg-white"
-                    : "bg-[#0A0DA8]";
-
-                  const symbol =
-                    showPieces && piece
-                      ? PIECE_UNICODE[`${piece.color}${piece.type}`]
-                      : "";
-
-                  return (
-                    <button
-                      key={sq}
-                      type="button"
-                      onClick={() => handleSquareClick(sq)}
-                      className={`aspect-square relative flex items-center justify-center text-2xl sm:text-3xl select-none cursor-pointer ${bgClass}`}
-                    >
-                      {isTarget && (
-                        <span className="w-3 h-3 rounded-full bg-[#4CD92B] ring-2 ring-white" />
-                      )}
-                      {symbol && (
-                        <span
-                          className={
-                            piece?.color === "w"
-                              ? "text-[#F5B700] drop-shadow-[0_1.5px_1.5px_rgba(0,0,0,0.9)]"
-                              : "text-[#FF6B6B] drop-shadow-[0_1.5px_1.5px_rgba(0,0,0,0.9)]"
-                          }
-                        >
-                          {symbol}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
+          <div className="text-center">
+            <h1 className="font-condensed-title text-3xl sm:text-4xl font-bold text-[#083B6B] tracking-wide uppercase">
+              CIVIC CHESS — MATERI {moduleOrder}
+            </h1>
+            <p className="text-xs sm:text-sm font-semibold text-[#083B6B]/90">
+              {moduleTitle}
+            </p>
           </div>
 
-          {/* Kontrol kecil di bawah papan */}
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 w-full max-w-[430px] text-xs text-gray-700">
-            <button
-              type="button"
-              onClick={handleRestart}
-              className="inline-flex items-center gap-1 bg-white border border-[#3A75B5] px-3 py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Reset Papan</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowPieces((s) => !s)}
-              className="bg-white border border-[#3A75B5] px-3 py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer"
-            >
-              {showPieces ? "Sembunyikan Bidak" : "Tampilkan Bidak"}
-            </button>
-            {allLevels.length > 1 && (
-              <div className="flex items-center gap-1">
-                {allLevels.map((l) => (
-                  <Link
-                    key={l.number}
-                    href={`/chess/${l.number}`}
-                    className={`px-2 py-1 rounded ${
-                      l.number === levelNumber
-                        ? "bg-[#083B6B] text-white font-bold"
-                        : "bg-white border border-[#3A75B5] text-black"
-                    }`}
-                  >
-                    L{l.number}
-                  </Link>
-                ))}
+          <div className="bg-white/90 border border-[#083B6B]/20 text-[#083B6B] font-bold text-xs sm:text-sm px-4 py-2 rounded-xl">
+            Total Poin: {points}
+          </div>
+        </div>
+      </section>
+
+      <section className="max-w-6xl mx-auto px-4 sm:px-8 mt-7 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* SEBELAH KIRI: Panel Pertanyaan Pilihan Ganda & Sugesti Best Move / Blunder */}
+        <div className="lg:col-span-5 flex flex-col space-y-4 order-2 lg:order-1">
+          <div className="bg-white border-2 border-[#1C1C1C] rounded-2xl p-6 shadow-sm">
+            <div className="flex items-center justify-between gap-2 pb-3 border-b border-gray-200">
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-[#1C1C1C] text-white">
+                <HelpCircle className="w-3.5 h-3.5 text-[#F5B700]" />
+                <span>Kuis Langkah Catur</span>
+              </span>
+              <span className="text-xs font-semibold text-gray-600">
+                {quizActive
+                  ? "Wajib Dijawab Sekarang"
+                  : `${remainingSteps} langkah lagi menuju soal`}
+              </span>
+            </div>
+
+            {quizActive ? (
+              <div className="mt-4">
+                <div className="text-xs font-bold text-[#00529B] uppercase tracking-wide">
+                  Pertanyaan Muncul!
+                </div>
+                <p className="mt-2 text-sm sm:text-base font-medium text-black leading-relaxed">
+                  {currentQuestion.text}
+                </p>
+
+                <div className="mt-4 space-y-2.5">
+                  {currentQuestion.options.map((opt, idx) => {
+                    const locked = chosenOpt !== null;
+                    const isAnswer = idx === currentQuestion.answerIndex;
+                    const isChosen = idx === chosenOpt;
+
+                    let optCls =
+                      "border-gray-300 bg-white hover:bg-gray-50 text-black";
+                    if (locked) {
+                      if (isAnswer) {
+                        optCls =
+                          "border-[#2E8B19] bg-[#D9F9C4] text-black font-semibold";
+                      } else if (isChosen) {
+                        optCls = "border-[#DC2626] bg-[#FDC5C5] text-black";
+                      }
+                    }
+
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        disabled={locked}
+                        onClick={() => handleSelectOption(idx)}
+                        className={`w-full text-left border rounded-xl px-4 py-2.5 text-xs sm:text-sm flex items-center justify-between gap-2 transition cursor-pointer ${optCls}`}
+                      >
+                        <span>
+                          {String.fromCharCode(65 + idx)}. {opt}
+                        </span>
+                        {locked && isAnswer && (
+                          <Check className="w-4 h-4 text-[#1F6F12] shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {chosenOpt !== null && (
+                  <div className="mt-4 space-y-3">
+                    <div className="text-xs leading-relaxed bg-gray-50 border border-gray-200 rounded-xl p-3 text-gray-800">
+                      <strong>Pembahasan:</strong> {currentQuestion.explanation}
+                    </div>
+
+                    {bestMoveHint ? (
+                      <div className="bg-[#ECFDF5] border border-[#10B981] rounded-xl p-3.5 space-y-2.5">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-[#065F46]">
+                          <Sparkles className="w-4 h-4 text-[#F5B700]" />
+                          <span>
+                            Sugesti Best Move: {bestMoveHint.pieceName}{" "}
+                            {bestMoveHint.from.toUpperCase()} →{" "}
+                            {bestMoveHint.to.toUpperCase()} ({bestMoveHint.san})
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={handleApplyBestMove}
+                            className="bg-[#065F46] hover:bg-[#047857] text-white text-xs font-bold px-4 py-2 rounded-lg cursor-pointer transition"
+                          >
+                            Jalankan Best Move Otomatis
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleCloseQuizCard}
+                            className="bg-white border border-gray-300 text-gray-800 text-xs font-semibold px-3.5 py-2 rounded-lg hover:bg-gray-50 cursor-pointer transition"
+                          >
+                            Pilih Langkah Sendiri
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleCloseQuizCard}
+                        className="w-full bg-[#1C1C1C] hover:bg-black text-white text-xs sm:text-sm font-bold py-2.5 rounded-xl cursor-pointer transition"
+                      >
+                        Lanjutkan Permainan
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="mt-4 space-y-3">
+                <p className="text-xs sm:text-sm text-gray-700 leading-relaxed">
+                  Pertanyaan pilihan ganda akan muncul otomatis di kotak ini
+                  setiap <strong>3 atau 4 langkah</strong>.
+                </p>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="bg-[#ECFDF5] border border-[#A7F3D0] rounded-xl p-3">
+                    <div className="font-bold text-[#065F46] flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Jika Benar</span>
+                    </div>
+                    <p className="mt-1 text-gray-700">
+                      Dapat <strong>+20 Poin</strong> & muncul{" "}
+                      <strong>Sugesti Best Move</strong> di papan.
+                    </p>
+                  </div>
+                  <div className="bg-[#FEF2F2] border border-[#FECACA] rounded-xl p-3">
+                    <div className="font-bold text-[#991B1B] flex items-center gap-1">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      <span>Jika Salah</span>
+                    </div>
+                    <p className="mt-1 text-gray-700">
+                      Sistem otomatis membuat{" "}
+                      <strong>1 langkah blunder</strong> pada bidakmu.
+                    </p>
+                  </div>
+                </div>
+
+                {bestMoveHint && (
+                  <div className="bg-[#ECFDF5] border border-[#10B981] rounded-xl p-3.5 flex items-center justify-between gap-3">
+                    <div className="text-xs text-[#065F46]">
+                      <strong>Sugesti Best Move Aktif:</strong>{" "}
+                      {bestMoveHint.pieceName}{" "}
+                      {bestMoveHint.from.toUpperCase()} →{" "}
+                      {bestMoveHint.to.toUpperCase()} ({bestMoveHint.san})
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleApplyBestMove}
+                      className="bg-[#065F46] text-white text-xs font-bold px-3 py-1.5 rounded-lg shrink-0 cursor-pointer"
+                    >
+                      Jalankan
+                    </button>
+                  </div>
+                )}
+
+                {blunderNotice && (
+                  <div className="bg-[#FEF2F2] border border-[#F87171] rounded-xl p-3 text-xs text-[#991B1B] font-medium">
+                    ⚠️ {blunderNotice}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {statusMessage && (
+              <div className="mt-4 pt-3 border-t border-gray-100 text-xs font-semibold text-[#083B6B]">
+                {statusMessage}
               </div>
             )}
           </div>
         </div>
 
-        {/* Kanan: Materi & Kartu Pertanyaan Giliran Ini */}
-        <div className="lg:col-span-6 flex flex-col">
-          <div className="text-right text-xl sm:text-2xl font-bold text-black mb-4">
-            Materi {moduleOrder}: {points} Poin
+        {/* SEBELAH KANAN: Bar Penguasaan Permainan + Papan Catur Hitam-Putih */}
+        <div className="lg:col-span-7 flex flex-col items-center order-1 lg:order-2">
+          <div className="flex items-stretch gap-3 w-full max-w-[490px] justify-center">
+            {/* Bar Penguasaan Permainan (Vertikal seperti Chess.com) */}
+            <div
+              title={`Evaluasi Posisi: ${evalLabel}`}
+              className="w-7 sm:w-8 rounded-lg overflow-hidden border-2 border-[#1C1C1C] bg-[#1C1C1C] flex flex-col justify-between relative select-none shadow-sm shrink-0"
+            >
+              {/* Bagian Hitam di atas, Bagian Putih di bawah */}
+              <div
+                className="w-full bg-[#262626] transition-all duration-300"
+                style={{ height: `${100 - whitePct}%` }}
+              />
+              <div
+                className="w-full bg-white transition-all duration-300"
+                style={{ height: `${whitePct}%` }}
+              />
+
+              {/* Label angka evaluasi */}
+              <span
+                className={`absolute left-0 right-0 text-center text-[10px] font-extrabold tracking-tighter ${
+                  evalCp >= 0
+                    ? "bottom-1.5 text-[#1C1C1C]"
+                    : "top-1.5 text-white"
+                }`}
+              >
+                {evalLabel}
+              </span>
+            </div>
+
+            {/* Papan Catur 8x8 Warna Hitam & Putih */}
+            <div className="flex-1 max-w-[440px] border-4 border-[#1C1C1C] rounded-lg overflow-hidden bg-white shadow-md">
+              {ranks.map((rank, rIdx) => (
+                <div key={rank} className="grid grid-cols-8">
+                  {files.map((file, fIdx) => {
+                    const sq = `${file}${rank}` as Square;
+                    const piece = board[rIdx][fIdx];
+                    const isLight = (rIdx + fIdx) % 2 === 0;
+                    const isSelected = selectedSquare === sq;
+                    const isTarget = legalTargets.includes(sq);
+                    const isBestFrom = bestMoveHint?.from === sq;
+                    const isBestTo = bestMoveHint?.to === sq;
+                    const isLastMove =
+                      lastMove?.from === sq || lastMove?.to === sq;
+
+                    let bgClass = isLight ? "bg-[#F3F4F6]" : "bg-[#2E2E2E]";
+                    if (isSelected) {
+                      bgClass = "bg-[#F5B700]";
+                    } else if (isBestFrom || isBestTo) {
+                      bgClass = "bg-[#34D399] ring-2 ring-inset ring-[#065F46]";
+                    } else if (isLastMove) {
+                      bgClass = isLight ? "bg-[#FDE68A]" : "bg-[#927024]";
+                    }
+
+                    const symbol = piece
+                      ? PIECE_UNICODE[`${piece.color}${piece.type}`]
+                      : "";
+
+                    return (
+                      <button
+                        key={sq}
+                        type="button"
+                        onClick={() => handleSquareClick(sq)}
+                        className={`aspect-square relative flex items-center justify-center text-2xl sm:text-4xl select-none cursor-pointer transition-colors ${bgClass}`}
+                      >
+                        {/* Koordinat tepi papan */}
+                        {fIdx === 0 && (
+                          <span
+                            className={`absolute top-0.5 left-1 text-[9px] font-bold leading-none ${
+                              isLight ? "text-[#2E2E2E]" : "text-[#F3F4F6]"
+                            }`}
+                          >
+                            {rank}
+                          </span>
+                        )}
+                        {rIdx === 7 && (
+                          <span
+                            className={`absolute bottom-0.5 right-1 text-[9px] font-bold leading-none ${
+                              isLight ? "text-[#2E2E2E]" : "text-[#F3F4F6]"
+                            }`}
+                          >
+                            {file}
+                          </span>
+                        )}
+
+                        {isTarget && (
+                          <span
+                            className={`rounded-full ${
+                              piece
+                                ? "absolute inset-1 border-4 border-[#22C55E]/80"
+                                : "w-3.5 h-3.5 bg-[#22C55E] ring-2 ring-white"
+                            }`}
+                          />
+                        )}
+
+                        {symbol && (
+                          <span
+                            className={
+                              piece?.color === "w"
+                                ? "text-white drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.95)] [text-stroke:1px_#000]"
+                                : "text-[#111111] drop-shadow-[0_1px_1.5px_rgba(255,255,255,0.85)]"
+                            }
+                          >
+                            {symbol}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
           </div>
 
-          <div className="bg-white border border-[#3A75B5] rounded-xl p-6 sm:p-8 shadow-xs">
-            <h2 className="text-xl sm:text-2xl font-bold text-black">
-              Pertanyaan giliran ini!
-            </h2>
-
-            <p className="mt-4 text-xs sm:text-sm text-black leading-relaxed">
-              {currentQuestion.text}
-            </p>
-
-            {answering && (
-              <div className="mt-4 space-y-2">
-                {currentQuestion.options.map((opt, idx) => {
-                  const locked = chosenOpt !== null;
-                  const isAnswer = idx === currentQuestion.answerIndex;
-                  const isChosen = idx === chosenOpt;
-
-                  let optCls =
-                    "border-[#3A75B5] bg-white hover:bg-[#F5F8FF] text-black";
-                  if (locked) {
-                    if (isAnswer) {
-                      optCls = "border-[#3A75B5] bg-[#D9F9C4] text-black";
-                    } else if (isChosen) {
-                      optCls = "border-[#3A75B5] bg-[#FDC5C5] text-black";
-                    }
-                  }
-
-                  return (
-                    <button
-                      key={idx}
-                      type="button"
-                      disabled={locked}
-                      onClick={() => handleSelectOption(idx)}
-                      className={`w-full text-left border rounded-lg px-4 py-2 text-xs sm:text-sm flex items-center justify-between gap-2 cursor-pointer ${optCls}`}
-                    >
-                      <span>
-                        {String.fromCharCode(65 + idx)}. {opt}
-                      </span>
-                      {locked && isAnswer && (
-                        <Check className="w-4 h-4 text-[#0080FF] shrink-0" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {statusMessage && (
-              <div className="mt-3 text-xs font-semibold text-[#00529B]">
-                {statusMessage}
-              </div>
-            )}
-
-            <div className="mt-6 grid grid-cols-2 gap-5">
-              <button
-                type="button"
-                onClick={() => {
-                  if (!answering) {
-                    setAnswering(true);
-                    setStatusMessage(null);
-                  } else if (chosenOpt !== null) {
-                    setStatusMessage(null);
-                    nextQuestion();
-                  }
-                }}
-                className="border border-[#3A75B5] bg-[#DFFFD6] hover:bg-[#ccf8bf] text-black text-xs sm:text-sm py-3.5 px-4 rounded-xl text-center transition cursor-pointer"
-              >
-                {answering && chosenOpt !== null
-                  ? "Soal Berikutnya"
-                  : "Jawab & Lanjutkan"}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleSkipQuestion}
-                className="border border-[#3A75B5] bg-[#FDECEF] hover:bg-[#fbd8df] text-black text-xs sm:text-sm py-3.5 px-4 rounded-xl text-center transition cursor-pointer"
-              >
-                Lewati (-10 Poin)
-              </button>
+          {/* Keterangan Bar Penguasaan & Tombol Reset di bawah papan */}
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 w-full max-w-[490px] text-xs text-gray-700">
+            <div className="flex items-center gap-2 bg-white border border-gray-300 px-3 py-1.5 rounded-lg">
+              <span className="inline-block w-2.5 h-2.5 rounded-xs bg-white border border-black" />
+              <span className="font-semibold">
+                Penguasaan Putih: {Math.round(whitePct)}% ({evalLabel})
+              </span>
             </div>
+
+            <button
+              type="button"
+              onClick={handleRestart}
+              className="inline-flex items-center gap-1.5 bg-[#1C1C1C] text-white font-semibold px-3.5 py-1.5 rounded-lg hover:bg-black cursor-pointer transition"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Reset Papan</span>
+            </button>
           </div>
         </div>
       </section>
